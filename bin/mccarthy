@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# McCarthy CLI / REPL service.
+#   bin/mccarthy demo            # run the built-in demonstration
+#   bin/mccarthy serve           # read request s-exprs from stdin, emit certified responses
+#   bin/mccarthy < requests.lisp # same as serve, fed from a file
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ARGS=("$@")
+exec nix-shell -p sbcl --run "sbcl --noinform --non-interactive --disable-debugger \
+  --load $DIR/src/load.lisp --load $DIR/src/cli.lisp \
+  --eval '(mccarthy::main)' --end-toplevel-options ${ARGS[*]:-}"

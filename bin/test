@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run the full McCarthy test suite (kernel soundness, logic, autonomous prover).
+set -uo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fail=0
+for t in smoke-kernel smoke-logic smoke-prover; do
+  echo "### $t"
+  nix-shell -p sbcl --run "sbcl --noinform --non-interactive --disable-debugger --load $DIR/tests/$t.lisp" 2>/dev/null \
+    | grep -E '^(  ok|  FAIL|  PROVED|  FAILED|  rejected|  UNSOUND|===)'
+  [ ${PIPESTATUS[0]} -ne 0 ] && fail=1
+done
+echo
+[ $fail -eq 0 ] && echo "ALL SUITES GREEN" || echo "SOME SUITES FAILED"
+exit $fail

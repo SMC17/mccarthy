@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Run an SBCL script under nix-provided SBCL. Usage: bin/sbcl-run file.lisp [args...]
+set -euo pipefail
+exec nix-shell -p sbcl --run "sbcl --non-interactive --disable-debugger --load \"$1\""
