@@ -37,12 +37,15 @@
      (let ((p (assoc (string s) env :test #'string-equal)))
        (cond (p (mk-var (string-upcase (string s)) (cdr p)))
              ((string-equal (string s) "T") (mk-t))
+             ((string-equal (string s) "F") (mk-false))
              (t (error "unbound symbol ~a — declare it in the signature" s)))))
     ((consp s)
      (case (%key (car s))
        (:= (mk-eq (parse-term (second s) env) (parse-term (third s) env)))
        ((:and :/\\) (mk-conj (parse-term (second s) env) (parse-term (third s) env)))
        ((:==> :imp :=>) (mk-imp (parse-term (second s) env) (parse-term (third s) env)))
+       ((:\\/ :or) (mk-disj (parse-term (second s) env) (parse-term (third s) env)))
+       ((:~ :not) (mk-neg (parse-term (second s) env)))
        ((:! :forall)
         (destructuring-bind ((vn vty) body) (cdr s)
           (let* ((ty (parse-type vty)) (v (mk-var (string-upcase (string vn)) ty)))
@@ -105,7 +108,10 @@
                (mvb (p q) (dest-imp c) (declare (ignore q))
                  (let ((pp (find p pool :key #'concl :test #'aconv)))
                    (when pp (let ((res (ignore-errors (mp a pp))))
-                              (when (and res (not (fact-known res pool))) (push res new))))))))))
+                              (when (and res (not (fact-known res pool))) (push res new)))))))
+              ((is-neg c)                       ; ~p  behaves as  p ==> F
+               (let ((ne (ignore-errors (not-elim a))))
+                 (when (and ne (not (fact-known ne pool))) (push ne new)))))))
         (setf new (remove-duplicates new :test (lambda (x y) (aconv (concl x) (concl y)))))
         (when (null new) (return))
         (setf pool (nconc pool new))))
@@ -119,12 +125,15 @@
   (when (minusp depth) (return-from solve nil))
   (let* ((all (append *facts* asms))
          (witnesses (cons w (mapcar #'concl all)))
-         (pool (forward-close all witnesses 2)))
+         (pool (forward-close all witnesses 3)))
     ;; closed goals: assumption hit, truth, reflexivity
     (dolist (a pool) (when (aconv (concl a) w) (return-from solve a)))
     (when (is-true w) (return-from solve (truth)))
     (when (and (is-eq w) (mvb (l r) (dest-eq w) (aconv l r)))
       (return-from solve (refl (nth-value 0 (dest-eq w)))))
+    ;; ex falso: a contradiction in the (saturated) assumptions proves anything
+    (let ((fth (find-if (lambda (a) (is-false (concl a))) pool)))
+      (when fth (return-from solve (contr w fth))))
     ;; backward structural decomposition
     (or
      (cond
@@ -141,11 +150,32 @@
                  (bod2 (vsubst (list (cons x x2)) bod))
                  (pb (solve asms bod2 (1- depth))))
             (when pb (gen x2 pb)))))
+       ((is-disj w)                         ; prove either disjunct
+        (mvb (a b) (dest-disj w)
+          (let ((pl (solve asms a (1- depth))))
+            (if pl (disj1 pl b)
+                (let ((pr (solve asms b (1- depth)))) (when pr (disj2 a pr)))))))
+       ((is-neg w)                          ; ~p  <=>  p ==> F
+        (let* ((p (dest-neg w))
+               (pf (solve (cons (assume p) asms) (mk-false) (1- depth))))
+          (when pf (not-intro (disch p pf)))))
        (t nil))
+     ;; case-split on a disjunctive assumption
+     (solve-by-disjunction asms pool w depth)
      ;; equational search step: rewrite the goal with one oriented equation
      ;; drawn from the (saturated) assumptions, then recurse.  Each step is a
      ;; certified  |- w = w'  so the recovered proof stays kernel-checked.
      (solve-by-rewriting asms pool w depth))))
+
+(defun solve-by-disjunction (asms pool w depth)
+  "If an assumption is  l \\/ r, prove W under each disjunct and combine."
+  (dolist (a pool nil)
+    (when (is-disj (concl a))
+      (mvb (l r) (dest-disj (concl a))
+        (let ((pl (solve (cons (assume l) asms) w (1- depth))))
+          (when pl
+            (let ((pr (solve (cons (assume r) asms) w (1- depth))))
+              (when pr (return (disj-cases a pl pr))))))))))
 
 (defun oriented-eq-rules (pool)
   "Equational theorems in POOL, both orientations, usable as rewrite rules."

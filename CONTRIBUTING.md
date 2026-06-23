@@ -49,7 +49,7 @@ should handle go in `tests/smoke-prover.lisp` or `tests/smoke-rewrite.lisp`.
 
 ## PR checklist (the ship-gate, per change)
 
-- [ ] `bin/test` is green (52/52 today, plus your new tests).
+- [ ] `bin/test` is green (64/64 today, plus your new tests).
 - [ ] No change to `src/kernel.lisp` unless the PR is explicitly about the kernel.
 - [ ] New capabilities have at least one **positive** test (it proves the thing)
       and, where it could over-fire, one **negative** test (it refuses a

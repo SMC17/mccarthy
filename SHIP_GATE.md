@@ -7,7 +7,7 @@ not inviting them; this file is the gate that prevents that.
 | # | Criterion | Status |
 |---|-----------|--------|
 | 1 | Builds and runs with zero dependencies beyond SBCL (`nix-shell -p sbcl`). | ✅ |
-| 2 | One-command reproducible test (`bin/test`) is fully green. | ✅ 52/52 |
+| 2 | One-command reproducible test (`bin/test`) is fully green. | ✅ 64/64 |
 | 3 | Trust surface is a single, small, isolated file (`src/kernel.lisp`). | ✅ |
 | 4 | Soundness is adversarially tested: a false theorem cannot be forged; the prover refuses non-theorems. | ✅ |
 | 5 | The system does something genuinely useful end-to-end (proves real first-order + equational theorems from their statements and certifies them). | ✅ |

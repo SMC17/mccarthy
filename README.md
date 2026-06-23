@@ -47,9 +47,15 @@ Verified examples it proves from their statements alone (see `tests/`):
 |- !x. x = x
 |- (!x. P x) ==> P c
 |- (!x. P x ==> Q x) ==> (!x. P x) ==> (!y. Q y)
+|- (a = b) ==> (P a ==> P b)                 ; equational / Leibniz
+|- (p \/ q) ==> (q \/ p)                      ; disjunction
+|- (p ==> q) ==> (~q ==> ~p)                  ; contrapositive
+|- ~(p /\ ~p)                                 ; non-contradiction
 ```
 
-and rejects `p ==> q`, `(P c) ==> (!x. P x)`, etc.
+and rejects `p ==> q`, `(P c) ==> (!x. P x)`, `(p \/ q) ==> p`, and even
+`p \/ ~p` — excluded middle is *not* provable in the axiom-free intuitionistic
+core, and the prover is faithful to that rather than quietly assuming it.
 
 ## Why Lisp (the honest version)
 
@@ -98,8 +104,9 @@ Request grammar:
 ```
 
 Connectives in the surface syntax: `=`, `and` / `/\`, `==>` / `imp`,
-`!` / `forall` (binder: `(! (x type) body)`), `lam`. Types: `bool`, type
-variables (any other symbol), `(fun a b)` / `(-> a b)`.
+`or` / `\/`, `not` / `~`, `F` (falsity), `!` / `forall`
+(binder: `(! (x type) body)`), `lam`. Types: `bool`, type variables (any other
+symbol), `(fun a b)` / `(-> a b)`.
 
 ## Roadmap to genuine Aristotle-scale
 

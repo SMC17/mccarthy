@@ -27,12 +27,12 @@ kernel.
    to the conversion library and a `beta-eta-rule`. File: `src/logic.lisp` /
    `src/rewrite.lisp`.
 
-5. **Disjunction `\/` and falsity `F`/negation `~`, definitionally.**
-   Add the HOL definitions and the intro/elim rules (`DISJ1`, `DISJ2`,
-   `DISJ_CASES`; `NOT_ELIM`, `CONTR`) — all derivable, **no axioms**. Then teach
-   `solve` to case-split on disjunctive assumptions and try each disjunct on a
-   `\/` goal. File: `src/logic.lisp`, `src/prover.lisp`. Targets:
-   `p ==> (p \/ q)`, `(p \/ q) ==> (q \/ p)`.
+5. **Existential `?`, definitionally.** `\/`, `~`, `F` already shipped; add the
+   existential the same way: `? = \P. !q. (!x. P x ==> q) ==> q`, with `EXISTS`
+   (intro, at a synthesized witness) and `CHOOSE` (elim). **No axioms.** Then
+   teach `solve` to introduce a witness for a `?` goal and to `CHOOSE` on an
+   existential assumption. File: `src/logic.lisp`, `src/prover.lisp`. Targets:
+   `(P c) ==> (?x. P x)`, `(?x. P x) ==> (!x. P x ==> q) ==> q`.
 
 6. **A `simp`-style tactic** that uses the learned `*facts*` equations as a
    rewrite set to normalize goals before search. File: `src/prover.lisp`.

@@ -22,9 +22,11 @@
    #:all-conv #:no-conv #:then-conv #:orelse-conv #:try-conv #:conv-fail
    #:truth #:eqt-intro #:eqt-elim
    #:conj #:conjunct1 #:conjunct2 #:mp #:disch #:undisch #:gen #:spec
+   #:contr #:not-elim #:not-intro #:disj1 #:disj2 #:disj-cases
    ;; connective term constructors / destructors
-   #:bool #:mk-t #:mk-conj #:mk-imp #:mk-forall
+   #:bool #:mk-t #:mk-conj #:mk-imp #:mk-forall #:mk-false #:mk-neg #:mk-disj
    #:dest-conj #:dest-imp #:dest-forall #:is-conj #:is-imp #:is-forall
+   #:dest-neg #:dest-disj #:is-false #:is-neg #:is-disj
    ;; printing
    #:pp #:thm->sexp #:print-thm))
 
@@ -126,7 +128,7 @@
 ;;; ---- the logical connectives, by definitional extension --------------------
 
 (defvar *T-def*) (defvar *and-def*) (defvar *imp-def*) (defvar *forall-def*)
-(defvar *truth*)
+(defvar *truth*) (defvar *false-def*) (defvar *neg-def*) (defvar *or-def*)
 
 (defun init-logic ()
   (let* ((b (bool))
@@ -149,13 +151,28 @@
     (let* ((aty (a-ty)) (pty (mk-fun aty b)) (pp (mk-var "P" pty)) (x (mk-var "x" aty))
            (def (mk-abs pp (mk-eq pp (mk-abs x (mk-t)))))
            (allty (mk-fun pty b)))
-      (setf *forall-def* (new-basic-definition (mk-eq (mk-var "!" allty) def))))))
+      (setf *forall-def* (new-basic-definition (mk-eq (mk-var "!" allty) def))))
+    ;; F = !p:bool. p
+    (let* ((p (mk-var "p" b)))
+      (setf *false-def* (new-basic-definition (mk-eq (mk-var "F" b) (mk-forall p p)))))
+    ;; ~ = \p. p ==> F
+    (let* ((p (mk-var "p" b))
+           (def (mk-abs p (mk-imp p (mk-false)))))
+      (setf *neg-def* (new-basic-definition (mk-eq (mk-var "~" (mk-fun b b)) def))))
+    ;; \/ = \p q. !r. (p==>r) ==> (q==>r) ==> r
+    (let* ((p (mk-var "p" b)) (q (mk-var "q" b)) (r (mk-var "r" b))
+           (body (mk-forall r (mk-imp (mk-imp p r) (mk-imp (mk-imp q r) r))))
+           (def (mk-abs p (mk-abs q body))))
+      (setf *or-def* (new-basic-definition (mk-eq (mk-var "\\/" bbb) def))))))
 
 ;;; connective term builders / destructors
 (defun mk-t () (mk-const "T"))
 (defun mk-conj (p q) (list-mk-comb (mk-const "/\\") (list p q)))
 (defun mk-imp  (p q) (list-mk-comb (mk-const "==>") (list p q)))
 (defun mk-forall (x body) (mk-comb (mk-const "!" (list (cons "A" (hvar-ty x)))) (mk-abs x body)))
+(defun mk-false () (mk-const "F"))
+(defun mk-neg (p) (mk-comb (mk-const "~") p))
+(defun mk-disj (p q) (list-mk-comb (mk-const "\\/") (list p q)))
 
 (defun head-const-name (tm)
   (let ((h tm)) (loop while (hcomb-p h) do (setf h (hcomb-rator h)))
@@ -172,6 +189,12 @@
   (values (hcomb-rand (hcomb-rator tm)) (hcomb-rand tm)))
 (defun dest-forall (tm) (unless (is-forall tm) (error "dest-forall"))
   (let ((lam (hcomb-rand tm))) (values (habs-bv lam) (habs-body lam))))
+(defun is-false (tm) (and (hconst-p tm) (string= (hconst-name tm) "F")))
+(defun is-neg (tm) (and (hcomb-p tm) (equal (head-const-name tm) "~")))
+(defun is-disj (tm) (and (hcomb-p tm) (hcomb-p (hcomb-rator tm)) (equal (head-const-name tm) "\\/")))
+(defun dest-neg (tm) (unless (is-neg tm) (error "dest-neg")) (hcomb-rand tm))
+(defun dest-disj (tm) (unless (is-disj tm) (error "dest-disj"))
+  (values (hcomb-rand (hcomb-rator tm)) (hcomb-rand tm)))
 
 ;;; ---- derived natural-deduction rules ---------------------------------------
 
@@ -247,6 +270,43 @@
          (th3 (beta-rule (ap-thm th2 tm))))           ; |- p[tm/x] = T
     (eqt-elim th3)))
 
+;; ---- falsity, negation, disjunction (all derived; no axioms) ----
+
+;; |- F   -->   |- any boolean tm   (ex falso)
+(defun contr (tm th-false) (spec tm (eq-mp *false-def* th-false)))
+
+;; |- ~p   -->   |- p ==> F
+(defun not-elim (th)
+  (let ((p (dest-neg (concl th)))) (eq-mp (beta-rule (ap-thm *neg-def* p)) th)))
+;; |- p ==> F   -->   |- ~p
+(defun not-intro (th)
+  (let ((p (nth-value 0 (dest-imp (concl th)))))
+    (eq-mp (sym (beta-rule (ap-thm *neg-def* p))) th)))
+
+(defun %or-eq (p q) (beta-rule (ap-thm (ap-thm *or-def* p) q))) ; |- (p\/q) = (!r.(p==>r)==>(q==>r)==>r)
+
+;; |- p  -->  |- p \/ q
+(defun disj1 (th q)
+  (let* ((p (concl th)) (b (bool))
+         (r (variant (free-vars-list (list* p q (hyp th))) (mk-var "r" b)))
+         (d1 (disch (mk-imp p r) (disch (mk-imp q r) (mp (assume (mk-imp p r)) th))))
+         (allr (gen r d1)))
+    (eq-mp (sym (%or-eq p q)) allr)))
+;; |- q  -->  |- p \/ q
+(defun disj2 (p th)
+  (let* ((q (concl th)) (b (bool))
+         (r (variant (free-vars-list (list* p q (hyp th))) (mk-var "r" b)))
+         (d1 (disch (mk-imp p r) (disch (mk-imp q r) (mp (assume (mk-imp q r)) th))))
+         (allr (gen r d1)))
+    (eq-mp (sym (%or-eq p q)) allr)))
+;; |- p\/q ,  A,p|-r ,  B,q|-r   -->   A,B |- r
+(defun disj-cases (thpq tha thb)
+  (mvb (p q) (dest-disj (concl thpq))
+    (let* ((r (concl tha))
+           (inst (spec r (eq-mp (%or-eq p q) thpq)))   ; |- (p==>r)==>(q==>r)==>r
+           (da (disch p tha)) (db (disch q thb)))
+      (mp (mp inst da) db))))
+
 ;;; ---- s-expression printer --------------------------------------------------
 
 (defun sym* (s) (intern (string-upcase s) :keyword))
@@ -258,6 +318,8 @@
     ((and (is-eq tm)) (multiple-value-bind (l r) (dest-eq tm) (list := (pp l) (pp r))))
     ((is-conj tm) (multiple-value-bind (l r) (dest-conj tm) (list :/\\ (pp l) (pp r))))
     ((is-imp tm)  (multiple-value-bind (l r) (dest-imp tm)  (list :==> (pp l) (pp r))))
+    ((is-disj tm) (multiple-value-bind (l r) (dest-disj tm) (list :\\/ (pp l) (pp r))))
+    ((is-neg tm)  (list :~ (pp (dest-neg tm))))
     ((is-forall tm) (multiple-value-bind (x b) (dest-forall tm) (list :! (intern (hvar-name x) :keyword) (pp b))))
     ((hcomb-p tm) (list (pp (hcomb-rator tm)) (pp (hcomb-rand tm))))
     ((habs-p tm) (list :lam (intern (hvar-name (habs-bv tm)) :keyword) (pp (habs-body tm))))))

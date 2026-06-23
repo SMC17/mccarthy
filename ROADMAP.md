@@ -2,7 +2,8 @@
 
 McCarthy is built bottom-up: no layer is added until the one beneath it is sound
 and tested. Current state — **sound HOL kernel + derived natural deduction +
-matcher/rewriting engine + autonomous prover + stateless service, 52/52 tests.**
+matcher/rewriting engine + intuitionistic connectives + autonomous prover +
+stateless service, 64/64 tests.**
 
 ## Shipped
 
@@ -10,16 +11,20 @@ matcher/rewriting engine + autonomous prover + stateless service, 52/52 tests.**
 - [x] Connectives `T /\ ==> !` by definitional extension + derived rules.
 - [x] Conversion / β-reduction engine.
 - [x] First-order matcher + rewriting engine (equational reasoning).
+- [x] Disjunction `\/`, negation `~`, falsity `F` — definitional, **axiom-free**,
+      with `DISJ1/2`, `DISJ_CASES`, `NOT_ELIM/INTRO`, `CONTR`; the prover
+      case-splits on disjunctive assumptions and discharges contradictions.
 - [x] Autonomous prover: backward decomposition + forward saturation +
-      synthesized instantiation + equational search.
+      synthesized instantiation + equational search + ex falso.
 - [x] Reflective fact registry (`learn`).
 - [x] Stateless REPL service + CLI.
 
 ## Next
 
-1. **Classical extension.** `\/`, `?`, `~`, `F` (the first three definitional and
-   axiom-free; full classical reasoning adds choice + extensionality as clearly
-   marked axioms). Brings excluded middle, existentials, proof by contradiction.
+1. **Existentials `?`** (definitional, axiom-free: `EXISTS` intro + `CHOOSE`
+   elim) and **classical reasoning** (excluded middle / proof-by-contradiction
+   via a clearly-marked choice or `EM` axiom — the first axioms in the system,
+   isolated and labelled).
 2. **Higher-order (Miller-pattern) matching** — rewriting under binders with
    schematic rules.
 3. **Conditional + ordered rewriting** — a real `simp`.
