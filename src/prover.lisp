@@ -12,8 +12,6 @@
 
 (in-package :mccarthy)
 
-(defmacro mvb (vars form &body body) `(multiple-value-bind ,vars ,form ,@body))
-
 (export '(parse-type parse-term prove-sexp solve auto-prove
           learn forget *facts* facts is-true
           gtac-conj gtac-disch gtac-gen gtac-assumption prove-with))
@@ -128,21 +126,40 @@
     (when (and (is-eq w) (mvb (l r) (dest-eq w) (aconv l r)))
       (return-from solve (refl (nth-value 0 (dest-eq w)))))
     ;; backward structural decomposition
-    (cond
-      ((is-conj w)
-       (mvb (a b) (dest-conj w)
-         (let ((pa (solve asms a (1- depth))))
-           (when pa (let ((pb (solve asms b (1- depth)))) (when pb (conj pa pb)))))))
-      ((is-imp w)
-       (mvb (a b) (dest-imp w)
-         (let ((pb (solve (cons (assume a) asms) b (1- depth)))) (when pb (disch a pb)))))
-      ((is-forall w)
-       (mvb (x bod) (dest-forall w)
-         (let* ((x2 (variant (free-vars-list (mapcar #'concl all)) x))
-                (bod2 (vsubst (list (cons x x2)) bod))
-                (pb (solve asms bod2 (1- depth))))
-           (when pb (gen x2 pb)))))
-      (t nil))))
+    (or
+     (cond
+       ((is-conj w)
+        (mvb (a b) (dest-conj w)
+          (let ((pa (solve asms a (1- depth))))
+            (when pa (let ((pb (solve asms b (1- depth)))) (when pb (conj pa pb)))))))
+       ((is-imp w)
+        (mvb (a b) (dest-imp w)
+          (let ((pb (solve (cons (assume a) asms) b (1- depth)))) (when pb (disch a pb)))))
+       ((is-forall w)
+        (mvb (x bod) (dest-forall w)
+          (let* ((x2 (variant (free-vars-list (mapcar #'concl all)) x))
+                 (bod2 (vsubst (list (cons x x2)) bod))
+                 (pb (solve asms bod2 (1- depth))))
+            (when pb (gen x2 pb)))))
+       (t nil))
+     ;; equational search step: rewrite the goal with one oriented equation
+     ;; drawn from the (saturated) assumptions, then recurse.  Each step is a
+     ;; certified  |- w = w'  so the recovered proof stays kernel-checked.
+     (solve-by-rewriting asms pool w depth))))
+
+(defun oriented-eq-rules (pool)
+  "Equational theorems in POOL, both orientations, usable as rewrite rules."
+  (loop for a in pool when (is-eq (concl a))
+        append (list a (sym a))))
+
+(defun solve-by-rewriting (asms pool w depth)
+  (dolist (e (oriented-eq-rules pool) nil)
+    (let* ((conv (bounded-depth-conv (rewr-conv e)))
+           (eqth (ignore-errors (funcall conv w)))
+           (w2 (and eqth (nth-value 1 (dest-eq (concl eqth))))))
+      (when (and w2 (not (aconv w2 w)))
+        (let ((pf (solve asms w2 (1- depth))))
+          (when pf (return (eq-mp (sym eqth) pf))))))))
 
 (defun auto-prove (term &key (depth 12))
   "Top-level: attempt to certify TERM. Returns a kernel thm or NIL."

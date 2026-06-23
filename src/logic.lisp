@@ -30,6 +30,8 @@
 
 (in-package :mccarthy)
 
+(defmacro mvb (vars form &body body) `(multiple-value-bind ,vars ,form ,@body))
+
 ;;; thin aliases over the kernel rules (kernel rule symbols are |REFL| etc.)
 (declaim (inline refl trans mk-comb-thm abs-thm beta-thm assume eq-mp deduct inst-thm inst-type-thm))
 (defun refl (tm) (prim-refl tm))
@@ -101,7 +103,9 @@
   (cond ((hcomb-p tm)
          (mk-comb-thm (conv-or-refl c (hcomb-rator tm))
                       (conv-or-refl c (hcomb-rand tm))))
-        ((habs-p tm) (abs-thm (habs-bv tm) (conv-or-refl c (habs-body tm))))
+        ((habs-p tm)
+         (handler-case (abs-thm (habs-bv tm) (conv-or-refl c (habs-body tm)))
+           (mccarthy.kernel:kernel-error () (refl tm))))
         (t (refl tm))))
 
 ;; bottom-up repeated application
