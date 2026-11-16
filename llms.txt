@@ -1,0 +1,9 @@
+# mccarthy
+
+> McCarthy-style Lisp interpreter
+
+## Links
+
+- Repository: https://github.com/SMC17/mccarthy
+- Ecosystem / Fleet Hub: https://github.com/SMC17/zinging
+- Author / Organization: https://github.com/SMC17
