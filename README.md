@@ -1,5 +1,7 @@
 # McCarthy — the Aristotle of Lisp
 
+**[Status](STATUS.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Issues](https://github.com/SMC17/mccarthy/issues) · [Public roadmap](https://github.com/users/SMC17/projects/16)**
+
 A self-contained, **sound** automated theorem prover whose trusted core is a
 higher-order logic kernel written homoiconically in Common Lisp, with an
 agentic proof-search layer on top. Named for John McCarthy.
